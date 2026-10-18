@@ -1,0 +1,41 @@
+name: Publish Firefox installer
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/configure-pages@v5
+      - name: Download official Russian Firefox ESR 115 for Windows x64
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p public
+          curl --fail --location --retry 3 --proto '=https' --proto-redir '=https' \
+            'https://download.mozilla.org/?product=firefox-esr115-latest-ssl&os=win64&lang=ru' \
+            --output public/f.exe
+          test "$(head -c 2 public/f.exe)" = MZ
+          (cd public && sha256sum f.exe > SHA256SUMS.txt)
+          echo '<!doctype html><meta charset="utf-8"><title>Firefox ESR 115</title><a href="f.exe">Firefox ESR 115 for Windows 7 x64 (Russian)</a><p>Downloaded from Mozilla. <a href="SHA256SUMS.txt">SHA-256</a></p>' > public/index.html
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: public
+      - name: Deploy
+        id: deployment
+        uses: actions/deploy-pages@v4
